@@ -1,0 +1,87 @@
+# hcrulepy coverage supplement - functions NOT exercised by all.rules
+# Input word for capture: p@ssW0rd   (length 8; chars p @ s s W 0 r d)
+#
+# IMPORTANT (discovered 2026-08-12 against real hashcat v7.1.2): running
+# this file STANDALONE makes hashcat abort with "No valid rules left" and
+# produce ZERO output/warnings, even though several of these rules ARE
+# individually supported by hashcat's --stdout -r engine. hashcat's rule
+# engine behaves differently for small rule files than for large ones - the
+# same rules (M4, l<9$5, etc.) DO work when appended to a large existing
+# ruleset (e.g. all.rules) instead of run alone. See
+# tests/test_hashcat_verified_functions.py for the confirmed results.
+#
+# To capture meaningfully, APPEND this file's content to all.rules first:
+#   printf 'p@ssW0rd\n' > word.txt
+#   cat all.rules coverage_supplement.rule > combined.rule
+#   hashcat --stdout -r combined.rule word.txt > coverage_supplement.out
+# (then diff the tail against all.rules-only output to isolate these rules'
+# contributions - see tests/test_hashcat_verified_functions.py's docstring
+# for the exact probe-marker technique used to do this unambiguously.)
+#
+# Also confirmed NOT processed by hashcat's -r engine at all (no output, no
+# warning, even when appended to a large ruleset): X, (, ), =, %. hcrulepy
+# still implements them per the wiki; they just cannot be verified against
+# real hashcat by this method.
+#
+# Rejection rules that REJECT produce NO output line (that is the point).
+# Rules that pass emit the transformed candidate. Keep comments/blank lines -
+# hashcat ignores them, and so does hcrulepy.
+#
+# ---------------------------------------------------------------- memory: M 4 6
+# M = memorize; 4 = append memory; 6 = prepend memory
+M4
+lM4
+uMl4
+rMr6
+uMl6
+lM6
+# X = insert substring of memory (may be skipped by hashcat's OpenCL rule
+# engine, exactly like lMuX084 in all.rules; kept so the capture shows whether
+# this build supports it).
+lMX084
+# ------------------------------------------------------------------ memory: Q
+# Q = reject if the memorized word equals the current word.
+# MQ: memory == word  -> REJECT (no output)
+MQ
+# MlQ: memorize "p@ssW0rd", lowercase -> "p@ssw0rd" != memory -> PASS
+MlQ
+# uMlQ: memorize "P@SSW0RD", lowercase -> "p@ssw0rd" != memory -> PASS
+uMlQ
+# ----------------------------------------------------------- reject length: < > _
+# <N reject if len > N   (len is 8)
+<9
+<8
+<7
+# >N reject if len < N
+>7
+>8
+>9
+# _N reject if len != N
+_8
+_7
+# --------------------------------------------------------- reject contains: ! /
+# !X reject if X present
+!z
+!s
+# /X reject if X absent
+/s
+/z
+# ------------------------------------------------------ reject ends/starts: ( )
+# (X reject unless starts with X
+(p
+(x
+# )X reject unless ends with X
+)d
+)x
+# ------------------------------------------------------ reject at position: = %
+# =NX reject unless char at position N equals X
+=0p
+=1@
+=7d
+=0x
+# %NX reject if X occurs fewer than N times
+%1s
+%2s
+%3s
+%1@
+%2@

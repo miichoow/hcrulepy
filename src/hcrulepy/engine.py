@@ -1,0 +1,155 @@
+"""Rule line parser and the RuleEngine."""
+
+from pathlib import Path
+from typing import Iterable, Iterator, List, Optional, Tuple, Union
+
+from hcrulepy.errors import InvalidRule, RejectCandidate
+from hcrulepy.memory import MemoryState, decode_pos
+from hcrulepy.rules import CLASS_REGISTRY, REGISTRY, char_class
+
+Op = Tuple  # ("std", cmd, args) or ("cls", ccmd, cls, extra)
+
+
+def _read_arg(spec_ch: str, line: str, i: int) -> Tuple[object, int]:
+    """Read one argument char per spec code ('P' or 'C'); return (value, next_index)."""
+    if i >= len(line):
+        raise InvalidRule(f"missing argument in rule {line!r}")
+    ch = line[i]
+    if spec_ch == "P":
+        if ch == "p":
+            raise InvalidRule("p-position register is not supported")
+        return decode_pos(ch), i + 1
+    # spec_ch == "C": literal char as one byte.
+    # hashcat honours a "\xHH" hex escape wherever a single literal char is
+    # read (e.g. `$\x64` appends byte 0x64). A lone "\" not followed by a
+    # valid "\xHH" is treated as a literal backslash.
+    if ch == "\\" and line[i + 1 : i + 2] == "x":
+        hexpair = line[i + 2 : i + 4]
+        if len(hexpair) == 2 and all(h in "0123456789abcdefABCDEF" for h in hexpair):
+            return bytes([int(hexpair, 16)]), i + 4
+    return ch.encode("latin-1"), i + 1
+
+
+def _parse_class_token(line: str, i: int) -> Tuple[frozenset, int]:
+    if i + 1 >= len(line) or line[i] != "?":
+        raise InvalidRule(f"expected ?C class token in {line!r}")
+    return char_class(line[i : i + 2]), i + 2
+
+
+def parse_rule(line: str) -> List[Op]:
+    line = line.rstrip("\r\n")
+    if not line or line.lstrip().startswith("#"):
+        return []
+    ops: List[Op] = []
+    i = 0
+    n = len(line)
+    while i < n:
+        c = line[i]
+        if c == " " or c == "\t":
+            i += 1
+            continue
+        if c == "~":
+            i += 1
+            if i >= n:
+                raise InvalidRule(f"dangling ~ in {line!r}")
+            ccmd = line[i]
+            if ccmd not in CLASS_REGISTRY:
+                raise InvalidRule(f"unknown class command ~{ccmd} in {line!r}")
+            i += 1
+            _cfunc, cspec = CLASS_REGISTRY[ccmd]
+            extra: list = []
+            # Positional ("P") args come BEFORE the class token (e.g. ~=N?C,
+            # ~%N?C); literal-char ("C") args come AFTER it (e.g. ~sY?C).
+            for sp in cspec:
+                if sp != "P":
+                    continue
+                val, i = _read_arg(sp, line, i)
+                extra.append(val)
+            cls, i = _parse_class_token(line, i)
+            for sp in cspec:
+                if sp != "C":
+                    continue
+                val, i = _read_arg(sp, line, i)
+                extra.append(val)
+            ops.append(("cls", ccmd, cls, tuple(extra)))
+            continue
+        if c not in REGISTRY:
+            raise InvalidRule(f"unknown rule command {c!r} in {line!r}")
+        i += 1
+        _sfunc, spec = REGISTRY[c]
+        args: list = []
+        for sp in spec:
+            val, i = _read_arg(sp, line, i)
+            args.append(val)
+        ops.append(("std", c, tuple(args)))
+    return ops
+
+
+def apply_ops(word: bytes, ops: List[Op], mem: Optional[MemoryState] = None) -> Optional[bytes]:
+    mem = mem or MemoryState()
+    w = word
+    try:
+        for op in ops:
+            if op[0] == "std":
+                sfunc, _sspec = REGISTRY[op[1]]
+                w = sfunc(w, op[2], mem)
+            else:
+                cfunc, _cspec = CLASS_REGISTRY[op[1]]
+                w = cfunc(w, op[2], op[3], mem)
+    except RejectCandidate:
+        return None
+    return w
+
+
+def apply_rule(word: str, rule: str) -> Optional[str]:
+    ops = parse_rule(rule)
+    out = apply_ops(word.encode("latin-1"), ops)
+    return None if out is None else out.decode("latin-1")
+
+
+def _iter_rule_lines(path: Union[str, Path]) -> List[str]:
+    """Split a rule file into lines byte-exactly, mirroring cli.py's _iter_words.
+
+    Splits only on "\\n" (not on other Unicode line boundaries such as
+    \\x0b, \\x0c, \\x1c, \\x85, ...) and strips a single trailing "\\r"
+    per line, so rule-file parsing matches hashcat's byte-exact behavior.
+    """
+    text = Path(path).read_text(encoding="latin-1")
+    lines = text.split("\n")
+    result: List[str] = []
+    for line in lines:
+        if line.endswith("\r"):
+            line = line[:-1]
+        result.append(line)
+    return result
+
+
+class RuleEngine:
+    def __init__(self, rules: Iterable[str]) -> None:
+        self._ops: List[List[Op]] = []
+        for line in rules:
+            ops = parse_rule(line)
+            if ops:
+                self._ops.append(ops)
+
+    @classmethod
+    def from_file(cls, path: Union[str, Path]) -> "RuleEngine":
+        return cls(_iter_rule_lines(path))
+
+    @classmethod
+    def from_files(cls, paths: Iterable[Union[str, Path]]) -> "RuleEngine":
+        lines: List[str] = []
+        for p in paths:
+            lines.extend(_iter_rule_lines(p))
+        return cls(lines)
+
+    def apply(self, word: Union[str, bytes]) -> Iterator[str]:
+        wb = word.encode("latin-1") if isinstance(word, str) else word
+        for ops in self._ops:
+            out = apply_ops(wb, ops)
+            if out is not None:
+                yield out.decode("latin-1")
+
+    def apply_many(self, words: Iterable[Union[str, bytes]]) -> Iterator[str]:
+        for word in words:
+            yield from self.apply(word)

@@ -1,0 +1,11 @@
+password
+p@ssW0rd
+a
+ab
+0000
+Passw0rd123
+UPPER
+MiXeDcase
+supercalifragilistic
+hello world
+foo-bar

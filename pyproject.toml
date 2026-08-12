@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hcrulepy"
+version = "1.0.0"
+description = "Pure-Python implementation of hashcat's rule-based attack engine"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "Damien Michaud" }]
+keywords = ["hashcat", "rules", "password", "wordlist", "mangling"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Security",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov", "ruff", "mypy"]
+
+[project.scripts]
+hcrulepy = "hcrulepy.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/damienmichaud/hcrulepy"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hcrulepy"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.mypy]
+python_version = "3.9"
+packages = ["hcrulepy"]
+strict = true
+# Op signatures are intentionally `tuple` / `frozenset` (untyped) per the
+# rule-engine design (see rules.py docstring); disallow_any_generics would
+# force every one of ~60 op signatures to spell out `tuple[Any, ...]` for
+# no type-safety benefit, so it is relaxed here instead.
+disallow_any_generics = false
+# Because `args` is a bare tuple, indexing it (args[0]) yields `Any`; a
+# handful of ops (op_duplicate_n, op_append, op_prepend, op_insert_at,
+# op_overwrite_at) return that value directly/via concatenation. Casting
+# each call site would add noise for no real safety gain here, so
+# warn_return_any is relaxed to match disallow_any_generics above.
+warn_return_any = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
