@@ -1,8 +1,10 @@
 """Command-line interface mirroring `hashcat --stdout -r ... wordlist`."""
 
+from __future__ import annotations
+
 import argparse
 import sys
-from typing import Iterable, Iterator, List, Optional
+from collections.abc import Iterable, Iterator
 
 from hcrulepy.engine import RuleEngine
 from hcrulepy.errors import InvalidRule
@@ -16,7 +18,7 @@ def _strip_eol(line: bytes) -> bytes:
     return line
 
 
-def _iter_words(wordlist: Optional[str]) -> Iterator[bytes]:
+def _iter_words(wordlist: str | None) -> Iterator[bytes]:
     # Stream line-by-line from the binary stream (constant memory). Iterating a
     # binary file object yields lines including the trailing "\n"; stripping a
     # single "\n" then "\r" reproduces the exact sequence of the previous
@@ -30,7 +32,7 @@ def _iter_words(wordlist: Optional[str]) -> Iterator[bytes]:
                 yield _strip_eol(line)
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="hcrulepy",
         description="Apply hashcat rules to words (hashcat --stdout compatible).",

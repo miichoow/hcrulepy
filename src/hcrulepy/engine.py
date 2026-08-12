@@ -1,16 +1,18 @@
 """Rule line parser and the RuleEngine."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional, Tuple, Union
 
 from hcrulepy.errors import InvalidRule, RejectCandidate
 from hcrulepy.memory import MemoryState, decode_pos
 from hcrulepy.rules import CLASS_REGISTRY, REGISTRY, char_class
 
-Op = Tuple  # ("std", cmd, args) or ("cls", ccmd, cls, extra)
+Op = tuple  # ("std", cmd, args) or ("cls", ccmd, cls, extra)
 
 
-def _read_arg(spec_ch: str, line: str, i: int) -> Tuple[object, int]:
+def _read_arg(spec_ch: str, line: str, i: int) -> tuple[object, int]:
     """Read one argument char per spec code ('P' or 'C'); return (value, next_index)."""
     if i >= len(line):
         raise InvalidRule(f"missing argument in rule {line!r}")
@@ -30,17 +32,17 @@ def _read_arg(spec_ch: str, line: str, i: int) -> Tuple[object, int]:
     return ch.encode("latin-1"), i + 1
 
 
-def _parse_class_token(line: str, i: int) -> Tuple[frozenset, int]:
+def _parse_class_token(line: str, i: int) -> tuple[frozenset, int]:
     if i + 1 >= len(line) or line[i] != "?":
         raise InvalidRule(f"expected ?C class token in {line!r}")
     return char_class(line[i : i + 2]), i + 2
 
 
-def parse_rule(line: str) -> List[Op]:
+def parse_rule(line: str) -> list[Op]:
     line = line.rstrip("\r\n")
     if not line or line.lstrip().startswith("#"):
         return []
-    ops: List[Op] = []
+    ops: list[Op] = []
     i = 0
     n = len(line)
     while i < n:
@@ -85,7 +87,7 @@ def parse_rule(line: str) -> List[Op]:
     return ops
 
 
-def apply_ops(word: bytes, ops: List[Op], mem: Optional[MemoryState] = None) -> Optional[bytes]:
+def apply_ops(word: bytes, ops: list[Op], mem: MemoryState | None = None) -> bytes | None:
     mem = mem or MemoryState()
     w = word
     try:
@@ -101,13 +103,13 @@ def apply_ops(word: bytes, ops: List[Op], mem: Optional[MemoryState] = None) -> 
     return w
 
 
-def apply_rule(word: str, rule: str) -> Optional[str]:
+def apply_rule(word: str, rule: str) -> str | None:
     ops = parse_rule(rule)
     out = apply_ops(word.encode("latin-1"), ops)
     return None if out is None else out.decode("latin-1")
 
 
-def _iter_rule_lines(path: Union[str, Path]) -> List[str]:
+def _iter_rule_lines(path: str | Path) -> list[str]:
     """Split a rule file into lines byte-exactly, mirroring cli.py's _iter_words.
 
     Splits only on "\\n" (not on other Unicode line boundaries such as
@@ -116,40 +118,35 @@ def _iter_rule_lines(path: Union[str, Path]) -> List[str]:
     """
     text = Path(path).read_text(encoding="latin-1")
     lines = text.split("\n")
-    result: List[str] = []
-    for line in lines:
-        if line.endswith("\r"):
-            line = line[:-1]
-        result.append(line)
-    return result
+    return [line.removesuffix("\r") for line in lines]
 
 
 class RuleEngine:
     def __init__(self, rules: Iterable[str]) -> None:
-        self._ops: List[List[Op]] = []
+        self._ops: list[list[Op]] = []
         for line in rules:
             ops = parse_rule(line)
             if ops:
                 self._ops.append(ops)
 
     @classmethod
-    def from_file(cls, path: Union[str, Path]) -> "RuleEngine":
+    def from_file(cls, path: str | Path) -> RuleEngine:
         return cls(_iter_rule_lines(path))
 
     @classmethod
-    def from_files(cls, paths: Iterable[Union[str, Path]]) -> "RuleEngine":
-        lines: List[str] = []
+    def from_files(cls, paths: Iterable[str | Path]) -> RuleEngine:
+        lines: list[str] = []
         for p in paths:
             lines.extend(_iter_rule_lines(p))
         return cls(lines)
 
-    def apply(self, word: Union[str, bytes]) -> Iterator[str]:
+    def apply(self, word: str | bytes) -> Iterator[str]:
         wb = word.encode("latin-1") if isinstance(word, str) else word
         for ops in self._ops:
             out = apply_ops(wb, ops)
             if out is not None:
                 yield out.decode("latin-1")
 
-    def apply_many(self, words: Iterable[Union[str, bytes]]) -> Iterator[str]:
+    def apply_many(self, words: Iterable[str | bytes]) -> Iterator[str]:
         for word in words:
             yield from self.apply(word)

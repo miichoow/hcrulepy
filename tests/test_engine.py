@@ -1,5 +1,6 @@
 import pytest
-from hcrulepy.engine import parse_rule, apply_rule, RuleEngine
+
+from hcrulepy.engine import RuleEngine, apply_rule, parse_rule
 from hcrulepy.errors import InvalidRule
 
 

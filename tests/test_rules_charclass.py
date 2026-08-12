@@ -1,4 +1,5 @@
 import pytest
+
 from hcrulepy.errors import RejectCandidate
 from hcrulepy.memory import MemoryState
 from hcrulepy.rules import CLASS_REGISTRY, char_class

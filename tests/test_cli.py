@@ -43,5 +43,6 @@ def test_console_script_runs():
     out = subprocess.run(
         [sys.executable, "-m", "hcrulepy", "--help"],
         capture_output=True,
+        check=False,
     )
     assert out.returncode == 0

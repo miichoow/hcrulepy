@@ -17,7 +17,7 @@ def find_hashcat():
 
 
 def hashcat_version(binpath):
-    out = subprocess.run([binpath, "--version"], capture_output=True, text=True)
+    out = subprocess.run([binpath, "--version"], capture_output=True, text=True, check=False)
     m = re.search(r"v?(\d+)\.(\d+)", out.stdout.strip())
     return tuple(int(x) for x in m.groups()) if m else (0, 0)
 
@@ -27,6 +27,7 @@ def run_hashcat(binpath, rule_file):
     proc = subprocess.run(
         [binpath, "--stdout", "-r", str(rule_file), str(WORDLIST)],
         capture_output=True,
+        check=False,
     )
     assert proc.returncode == 0, proc.stderr.decode("latin-1", "replace")
     return proc.stdout

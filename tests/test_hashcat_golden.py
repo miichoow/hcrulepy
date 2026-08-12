@@ -47,7 +47,7 @@ def _lines(path: Path) -> list[str]:
     raw = path.read_bytes().decode("latin-1").split("\n")
     if raw and raw[-1] == "":
         raw.pop()
-    return [ln[:-1] if ln.endswith("\r") else ln for ln in raw]
+    return [ln.removesuffix("\r") for ln in raw]
 
 
 def _compare(rules_path: Path, out_path: Path) -> None:

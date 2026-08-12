@@ -5,7 +5,9 @@ Ops either return the transformed word or raise RejectCandidate.
 Positions in `args` are ints; char args are one-byte `bytes`.
 """
 
-from typing import Callable, Dict, FrozenSet, Tuple
+from __future__ import annotations
+
+from collections.abc import Callable
 
 from hcrulepy.errors import RejectCandidate
 from hcrulepy.memory import (
@@ -19,7 +21,7 @@ from hcrulepy.memory import (
 )
 
 Op = Callable[[bytes, tuple, MemoryState], bytes]
-REGISTRY: Dict[str, Tuple[Op, str]] = {}
+REGISTRY: dict[str, tuple[Op, str]] = {}
 
 
 def _reg(cmd: str, spec: str) -> Callable[[Op], Op]:
@@ -416,7 +418,7 @@ def op_reject_count_lt(w: bytes, args: tuple, mem: MemoryState) -> bytes:
 _PRINTABLE_SPECIAL = frozenset(b" !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
 
 
-def char_class(token: str) -> FrozenSet[int]:
+def char_class(token: str) -> frozenset[int]:
     """Resolve a hashcat ?C class token to a set of byte values."""
     if len(token) != 2 or token[0] != "?":
         from hcrulepy.errors import InvalidRule
@@ -438,14 +440,14 @@ def char_class(token: str) -> FrozenSet[int]:
     if c == "a":
         return frozenset(range(0x20, 0x7F))
     if c == "b":
-        return frozenset(range(0x00, 0x100))
+        return frozenset(range(0x100))
     from hcrulepy.errors import InvalidRule
 
     raise InvalidRule(f"unknown class {token!r}")
 
 
-ClassOp = Callable[[bytes, FrozenSet[int], tuple, MemoryState], bytes]
-CLASS_REGISTRY: Dict[str, Tuple[ClassOp, str]] = {}
+ClassOp = Callable[[bytes, frozenset[int], tuple, MemoryState], bytes]
+CLASS_REGISTRY: dict[str, tuple[ClassOp, str]] = {}
 
 
 def _creg(cmd: str, spec: str) -> Callable[[ClassOp], ClassOp]:
@@ -457,18 +459,18 @@ def _creg(cmd: str, spec: str) -> Callable[[ClassOp], ClassOp]:
 
 
 @_creg("s", "C")
-def cop_replace(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_replace(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     y = extra[0]
     return bytes(y[0] if b in cls else b for b in w)
 
 
 @_creg("@", "")
-def cop_remove(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_remove(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     return bytes(b for b in w if b not in cls)
 
 
 @_creg("e", "")
-def cop_capitalize(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_capitalize(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     out = bytearray(w)
     start = True
     for i, b in enumerate(out):
@@ -479,37 +481,35 @@ def cop_capitalize(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemorySta
 
 
 @_creg("!", "")
-def cop_reject_contains(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_reject_contains(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     if any(b in cls for b in w):
         raise RejectCandidate
     return w
 
 
 @_creg("/", "")
-def cop_reject_not_contains(
-    w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState
-) -> bytes:
+def cop_reject_not_contains(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     if not any(b in cls for b in w):
         raise RejectCandidate
     return w
 
 
 @_creg("(", "")
-def cop_reject_first(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_reject_first(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     if not w or w[0] not in cls:
         raise RejectCandidate
     return w
 
 
 @_creg(")", "")
-def cop_reject_last(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_reject_last(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     if not w or w[-1] not in cls:
         raise RejectCandidate
     return w
 
 
 @_creg("=", "P")
-def cop_reject_at(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_reject_at(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     n = extra[0]
     if n >= len(w) or w[n] not in cls:
         raise RejectCandidate
@@ -517,7 +517,7 @@ def cop_reject_at(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryStat
 
 
 @_creg("%", "P")
-def cop_reject_count(w: bytes, cls: "FrozenSet[int]", extra: tuple, mem: MemoryState) -> bytes:
+def cop_reject_count(w: bytes, cls: frozenset[int], extra: tuple, mem: MemoryState) -> bytes:
     n = extra[0]
     if sum(1 for b in w if b in cls) < n:
         raise RejectCandidate
