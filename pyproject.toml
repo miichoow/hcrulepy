@@ -25,7 +25,7 @@ dev = ["pytest>=7", "pytest-cov", "ruff", "mypy"]
 hcrulepy = "hcrulepy.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/damienmichaud/hcrulepy"
+Homepage = "https://github.com/miichoow/hcrulepy"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hcrulepy"]

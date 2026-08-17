@@ -1,7 +1,7 @@
 # hcrulepy
 
-[![CI](https://github.com/damienmichaud/hcrulepy/actions/workflows/ci.yml/badge.svg)](https://github.com/damienmichaud/hcrulepy/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/damienmichaud/hcrulepy/branch/main/graph/badge.svg)](https://codecov.io/gh/damienmichaud/hcrulepy)
+[![CI](https://github.com/miichoow/hcrulepy/actions/workflows/ci.yml/badge.svg)](https://github.com/miichoow/hcrulepy/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/miichoow/hcrulepy/branch/main/graph/badge.svg)](https://codecov.io/gh/miichoow/hcrulepy)
 [![PyPI](https://img.shields.io/pypi/v/hcrulepy.svg)](https://pypi.org/project/hcrulepy/)
 [![Python versions](https://img.shields.io/pypi/pyversions/hcrulepy.svg)](https://pypi.org/project/hcrulepy/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
