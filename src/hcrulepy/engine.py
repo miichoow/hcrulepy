@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -122,26 +123,48 @@ def _iter_rule_lines(path: str | Path) -> list[str]:
 
 
 class RuleEngine:
-    def __init__(self, rules: Iterable[str]) -> None:
+    def __init__(self, rules: Iterable[str], skip_invalid: bool = False) -> None:
         self._ops: list[list[Op]] = []
         for lineno, line in enumerate(rules, start=1):
             try:
                 ops = parse_rule(line)
             except InvalidRule as exc:
+                if skip_invalid:
+                    print(
+                        f"hcrulepy: warning: line {lineno}: {exc} (line: {line!r})", file=sys.stderr
+                    )
+                    continue
                 raise InvalidRule(f"line {lineno}: {exc} (line: {line!r})") from exc
             if ops:
                 self._ops.append(ops)
 
     @classmethod
-    def from_file(cls, path: str | Path) -> RuleEngine:
-        return cls(_iter_rule_lines(path))
+    def from_file(cls, path: str | Path, skip_invalid: bool = False) -> RuleEngine:
+        return cls.from_files([path], skip_invalid=skip_invalid)
 
     @classmethod
-    def from_files(cls, paths: Iterable[str | Path]) -> RuleEngine:
-        lines: list[str] = []
+    def from_files(cls, paths: Iterable[str | Path], skip_invalid: bool = False) -> RuleEngine:
+        # Parsed per-file (rather than delegating to __init__ on a merged line
+        # list) so an InvalidRule error can report which rule file it came
+        # from, not just a line number into the concatenated stream.
+        ops: list[list[Op]] = []
         for p in paths:
-            lines.extend(_iter_rule_lines(p))
-        return cls(lines)
+            for lineno, line in enumerate(_iter_rule_lines(p), start=1):
+                try:
+                    parsed = parse_rule(line)
+                except InvalidRule as exc:
+                    if skip_invalid:
+                        print(
+                            f"hcrulepy: warning: {p}:{lineno}: {exc} (line: {line!r})",
+                            file=sys.stderr,
+                        )
+                        continue
+                    raise InvalidRule(f"{p}:{lineno}: {exc} (line: {line!r})") from exc
+                if parsed:
+                    ops.append(parsed)
+        engine = cls.__new__(cls)
+        engine._ops = ops
+        return engine
 
     @staticmethod
     def check_files(paths: Iterable[str | Path]) -> list[tuple[str, int, str, str]]:

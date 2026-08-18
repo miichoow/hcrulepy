@@ -46,6 +46,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="validate the rule files and exit, without applying them to a wordlist",
     )
+    parser.add_argument(
+        "-k",
+        "--skip-invalid",
+        action="store_true",
+        help="warn and skip invalid rule lines instead of stopping",
+    )
     parser.add_argument("wordlist", nargs="?", help="wordlist file, or - for stdin")
     args = parser.parse_args(argv)
 
@@ -67,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        engine = RuleEngine.from_files(args.rules)
+        engine = RuleEngine.from_files(args.rules, skip_invalid=args.skip_invalid)
     except (OSError, InvalidRule) as exc:
         print(f"hcrulepy: {exc}", file=sys.stderr)
         return 2
