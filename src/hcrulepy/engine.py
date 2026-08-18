@@ -143,6 +143,22 @@ class RuleEngine:
             lines.extend(_iter_rule_lines(p))
         return cls(lines)
 
+    @staticmethod
+    def check_files(paths: Iterable[str | Path]) -> list[tuple[str, int, str, str]]:
+        """Validate rule files without building an engine.
+
+        Returns a list of (path, line_number, line_text, error_message) for
+        every line that fails to parse; empty if all files are clean.
+        """
+        errors: list[tuple[str, int, str, str]] = []
+        for p in paths:
+            for lineno, line in enumerate(_iter_rule_lines(p), start=1):
+                try:
+                    parse_rule(line)
+                except InvalidRule as exc:
+                    errors.append((str(p), lineno, line, str(exc)))
+        return errors
+
     def apply(self, word: str | bytes) -> Iterator[str]:
         wb = word.encode("latin-1") if isinstance(word, str) else word
         for ops in self._ops:

@@ -41,11 +41,30 @@ def main(argv: list[str] | None = None) -> int:
         "-r", "--rules", action="append", default=[], metavar="PATH", help="rule file (repeatable)"
     )
     parser.add_argument("--word", metavar="WORD", help="apply rules to a single word")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate the rule files and exit, without applying them to a wordlist",
+    )
     parser.add_argument("wordlist", nargs="?", help="wordlist file, or - for stdin")
     args = parser.parse_args(argv)
 
     if not args.rules:
         parser.error("at least one -r/--rules file is required")
+
+    if args.check:
+        try:
+            errors = RuleEngine.check_files(args.rules)
+        except OSError as exc:
+            print(f"hcrulepy: {exc}", file=sys.stderr)
+            return 2
+        for path, lineno, line, message in errors:
+            print(f"{path}:{lineno}: {message} (line: {line!r})", file=sys.stderr)
+        if errors:
+            print(f"hcrulepy: {len(errors)} invalid rule line(s)", file=sys.stderr)
+            return 1
+        print("hcrulepy: OK")
+        return 0
 
     try:
         engine = RuleEngine.from_files(args.rules)
