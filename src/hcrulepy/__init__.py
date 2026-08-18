@@ -11,4 +11,4 @@ __all__ = [
     "apply_rule",
     "parse_rule",
 ]
-__version__ = "1.0.0"
+__version__ = "1.1.0"
