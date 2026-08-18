@@ -9,7 +9,7 @@ description = "Pure-Python implementation of hashcat's rule-based attack engine"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
-authors = [{ name = "Damien Michaud" }]
+authors = [{ name = "miichoow" }]
 keywords = ["hashcat", "rules", "password", "wordlist", "mangling"]
 classifiers = [
     "Programming Language :: Python :: 3",
