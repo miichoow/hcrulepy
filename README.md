@@ -22,9 +22,11 @@ The main entry point is `RuleEngine`. It parses one or more rule files (or
 rule lines) once, then applies them to as many words as you like.
 
 ```python
-from hcrulepy.engine import RuleEngine
+from hcrulepy import RuleEngine
 
 engine = RuleEngine.from_files(["best64.rule"])
+# one file is fine too:
+engine = RuleEngine.from_file("best64.rule")
 # or pass rule lines directly:
 engine = RuleEngine(["u", "$1", ":"])
 
@@ -36,20 +38,46 @@ for candidate in engine.apply_many(["password", "letmein"]):
     print(candidate)
 ```
 
+Words can be `str` or `bytes`. A `str` is encoded as latin-1 on the way in,
+and candidates always come back as `str`, so passing bytes is a way to keep
+words that aren't valid text from tripping over an encode step.
+
 For one rule against one word, `apply_rule` is a shortcut:
 
 ```python
-from hcrulepy.engine import apply_rule
+from hcrulepy import apply_rule
 
 apply_rule("password", "u")     # -> "PASSWORD"
 apply_rule("password", "$1")    # -> "password1"
 apply_rule("password", ")z")    # -> None (rejected)
 ```
 
+The package also exports `parse_rule` and `apply_ops` if you want to parse a
+rule line once and reuse the resulting op list yourself.
+
 A rule that can't be parsed (unknown command, bad arguments) raises
-`hcrulepy.errors.InvalidRule`. A rule that rejects a candidate, like a
-length check that fails, produces no output for that word: `apply` skips it,
-and `apply_rule` returns `None`.
+`hcrulepy.errors.InvalidRule`. The message carries the file name where one
+applies, the line number, and the offending line, so a bad rule buried in a
+large file is easy to find. A rule that rejects a candidate, like a length
+check that fails, produces no output for that word: `apply` skips it, and
+`apply_rule` returns `None`.
+
+If you would rather keep going past bad lines than stop at the first one,
+pass `skip_invalid=True` to the constructor, to `from_file`, or to
+`from_files`. Each rejected line gets a warning on stderr and is dropped,
+and the rest of the file still loads.
+
+To validate rule files without building an engine at all, use
+`RuleEngine.check_files`. It returns one `(path, line_number, line_text,
+message)` tuple per line that fails to parse, and an empty list when
+everything is clean:
+
+```python
+from hcrulepy import RuleEngine
+
+for path, lineno, line, message in RuleEngine.check_files(["best64.rule"]):
+    print(f"{path}:{lineno}: {message}")
+```
 
 ## CLI usage
 
@@ -77,7 +105,33 @@ cat wordlist.txt | hcrulepy -r best64.rule
 ```
 
 A missing rule file, or a rule that fails to parse, prints a message to
-stderr and exits non-zero.
+stderr and exits with status 2.
+
+### Checking rule files
+
+`--check` parses the rule files and stops there, without reading a wordlist
+or producing candidates. Every line that fails to parse is reported on
+stderr with its file, its line number, and the text of the line itself, and
+the run ends with a count of how many were bad. A clean set of files prints
+`hcrulepy: OK` and exits 0, a set with bad lines exits 1, and a rule file
+that can't be read at all exits 2.
+
+```bash
+hcrulepy -r best64.rule -r custom.rule --check
+```
+
+### Skipping bad rule lines
+
+By default one unparseable line aborts the whole run. With `-k` (or
+`--skip-invalid`) each bad line is instead reported as a warning on stderr
+and left out, and the remaining rules are applied as usual. That is handy
+for large rule collections gathered from various places, where a handful of
+lines use syntax hcrulepy doesn't accept and you would rather have the
+output from everything else.
+
+```bash
+hcrulepy -r huge-collection.rule -k wordlist.txt
+```
 
 ## Supported rules
 
