@@ -30,6 +30,13 @@ def test_decode_pos_invalid():
         decode_pos("!")
 
 
+def test_decode_pos_wrong_length():
+    with pytest.raises(InvalidRule):
+        decode_pos("")
+    with pytest.raises(InvalidRule):
+        decode_pos("AB")
+
+
 def test_memory_state_default_and_reset():
     m = MemoryState()
     assert m.memory == b""

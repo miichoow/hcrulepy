@@ -43,3 +43,13 @@ def test_title_sep():
 
 def test_toggle_nth_sep():
     assert apply(b"pass-word", "3", (0, b"-")) == b"pass-Word"
+
+
+def test_toggle_nth_sep_not_enough_separators_noop():
+    # only one '-' present, but we ask for the 2nd (n=1) occurrence -> no-op
+    assert apply(b"pass-word", "3", (1, b"-")) == b"pass-word"
+
+
+def test_toggle_nth_sep_at_end_noop():
+    # separator is the last char, so there is no following char to toggle
+    assert apply(b"pass-", "3", (0, b"-")) == b"pass-"

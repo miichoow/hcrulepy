@@ -45,5 +45,17 @@ def test_swap_back():
     assert apply("K") == b"p@ssW0dr"
 
 
+def test_swap_front_short_word_noop():
+    func, _ = REGISTRY["k"]
+    assert func(b"a", (), MemoryState()) == b"a"
+    assert func(b"", (), MemoryState()) == b""
+
+
+def test_swap_back_short_word_noop():
+    func, _ = REGISTRY["K"]
+    assert func(b"a", (), MemoryState()) == b"a"
+    assert func(b"", (), MemoryState()) == b""
+
+
 def test_swap_at():
     assert apply("*", (3, 4)) == b"p@sWs0rd"

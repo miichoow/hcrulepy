@@ -2,6 +2,7 @@ import pytest
 
 from hcrulepy.engine import RuleEngine, apply_rule, parse_rule
 from hcrulepy.errors import InvalidRule
+from hcrulepy.rules import char_class
 
 
 def test_parse_multi_function_line():
@@ -38,12 +39,51 @@ def test_parse_class_rule():
     assert ops[0][0] == "cls" and ops[0][1] == "s"
 
 
+def test_parse_class_positional_arg_before_token():
+    # ~=N?C: positional arg comes BEFORE the class token.
+    ops = parse_rule("~=1?d")
+    assert ops == [("cls", "=", char_class("?d"), (1,))]
+
+
+def test_parse_class_literal_arg_after_token():
+    # ~sY?C: literal-char arg comes AFTER the class token.
+    ops = parse_rule("~s?d_")
+    assert ops == [("cls", "s", char_class("?d"), (b"_",))]
+
+
+def test_parse_dangling_tilde():
+    with pytest.raises(InvalidRule):
+        parse_rule("~")
+
+
+def test_parse_unknown_class_command():
+    with pytest.raises(InvalidRule):
+        parse_rule("~Z?d")
+
+
+def test_parse_missing_class_token():
+    with pytest.raises(InvalidRule):
+        parse_rule("~s")  # no ?C class token follows
+
+
 def test_apply_rule_transform():
     assert apply_rule("password", "so0") == "passw0rd"
 
 
 def test_apply_rule_reject():
     assert apply_rule("abcde", "<3") is None  # len 5 > 3 -> reject
+
+
+def test_apply_rule_class_op():
+    # ~s?d_ : replace every digit with '_' via the class-op path in apply_ops.
+    assert apply_rule("p4ss5", "~s?d_") == "p_ss_"
+
+
+def test_apply_rule_class_op_reject():
+    # ~!?d rejects words containing a digit, exercising the "cls" branch's
+    # RejectCandidate handling in apply_ops.
+    assert apply_rule("ab1", "~!?d") is None
+    assert apply_rule("abc", "~!?d") == "abc"
 
 
 def test_apply_rule_memory_roundtrip():
@@ -64,6 +104,48 @@ def test_engine_apply_many_word_major():
 def test_engine_rejects_dropped():
     eng = RuleEngine(["u", ")z"])  # )z rejects words not ending in z
     assert list(eng.apply("ab")) == ["AB"]  # second rule rejected
+
+
+def test_init_skip_invalid_warns_and_skips(capsys):
+    eng = RuleEngine(["u", "\x07", ":"], skip_invalid=True)
+    err = capsys.readouterr().err
+    assert "line 2" in err
+    assert list(eng.apply("ab")) == ["AB", "ab"]
+
+
+def test_init_without_skip_invalid_raises():
+    with pytest.raises(InvalidRule):
+        RuleEngine(["u", "\x07"])
+
+
+def test_from_files_skip_invalid_warns_and_skips(tmp_path, capsys):
+    rules = tmp_path / "r.rule"
+    rules.write_text("u\n\x07\n:\n", encoding="latin-1")
+    eng = RuleEngine.from_files([rules], skip_invalid=True)
+    err = capsys.readouterr().err
+    assert str(rules) in err and ":2:" in err
+    assert list(eng.apply("ab")) == ["AB", "ab"]
+
+
+def test_from_files_without_skip_invalid_raises(tmp_path):
+    rules = tmp_path / "r.rule"
+    rules.write_text("u\n\x07\n", encoding="latin-1")
+    with pytest.raises(InvalidRule):
+        RuleEngine.from_files([rules])
+
+
+def test_check_files_reports_errors(tmp_path):
+    good = tmp_path / "good.rule"
+    good.write_text("u\n:\n", encoding="latin-1")
+    bad = tmp_path / "bad.rule"
+    bad.write_text("u\n\x07\n$\n", encoding="latin-1")
+
+    assert RuleEngine.check_files([good]) == []
+
+    errors = RuleEngine.check_files([bad])
+    assert [e[1] for e in errors] == [2, 3]  # line numbers
+    assert errors[0][0] == str(bad)
+    assert errors[0][2] == "\x07"
 
 
 def test_from_file_byte_exact_line_splitting(tmp_path):

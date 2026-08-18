@@ -100,7 +100,9 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(f"hcrulepy: {exc}", file=sys.stderr)
         return 2
-    except InvalidRule as exc:
+    except InvalidRule as exc:  # pragma: no cover
+        # Defensive: parsing (the only source of InvalidRule) already
+        # completed successfully above, before candidates are generated.
         print(f"hcrulepy: {exc}", file=sys.stderr)
         return 2
     out.flush()

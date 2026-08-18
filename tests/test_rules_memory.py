@@ -35,6 +35,12 @@ def test_extract_memory():
     assert apply(b"p@ssw0rd", "X", (4, 2, 8), mem) == b"p@ssw0rdw0"
 
 
+def test_extract_memory_insert_past_end_noop():
+    mem = MemoryState()
+    mem.memory = b"XYZ"
+    assert apply(b"ab", "X", (0, 2, 5), mem) == b"ab"  # i=5 > len(w)=2
+
+
 def test_reject_memory_equal():
     mem = MemoryState()
     mem.memory = b"p@ssW0rd"
