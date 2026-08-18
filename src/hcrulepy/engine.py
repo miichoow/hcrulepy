@@ -124,8 +124,11 @@ def _iter_rule_lines(path: str | Path) -> list[str]:
 class RuleEngine:
     def __init__(self, rules: Iterable[str]) -> None:
         self._ops: list[list[Op]] = []
-        for line in rules:
-            ops = parse_rule(line)
+        for lineno, line in enumerate(rules, start=1):
+            try:
+                ops = parse_rule(line)
+            except InvalidRule as exc:
+                raise InvalidRule(f"line {lineno}: {exc} (line: {line!r})") from exc
             if ops:
                 self._ops.append(ops)
 
